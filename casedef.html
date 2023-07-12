@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>casedef</title>
+	</head>
+
+	<style>
+		:root {
+			--color-text: #bfbdb6;
+			--color-background: #10141c;
+			--color-background2: #30343c;
+			--color-border: #474d56;
+			--color-error: #f26d78;
+			--color-selected: #670033;
+		}
+
+		input {
+			color: inherit;
+			background-color: inherit;
+		}
+
+		input:focus {
+			color: inherit;
+			background-color: inherit;
+		}
+
+		/* Scrollbars */
+		::-webkit-scrollbar {
+			width: 15px;
+		}
+
+		::-webkit-scrollbar-track,
+		::-webkit-scrollbar-corner {
+			background: var(--color-background);
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: var(--color-border);
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			background: var(--color-selected);
+		}
+
+		/* Range input */
+		input[type="range"] {
+			color: inherit;
+			background-color: inherit;
+			height: 20px;
+			-webkit-appearance: none;
+			appearance: none;
+			width: 100%;
+		}
+
+		input[type="range"]:focus {
+			outline: none;
+		}
+
+		input[type="range"]::-webkit-slider-runnable-track {
+			width: 100%;
+			height: 16px;
+			cursor: pointer;
+			background: var(--color-border);
+		}
+
+		input[type="range"]:disabled::-webkit-slider-runnable-track {
+			cursor: not-allowed;
+		}
+
+		input[type="range"]::-webkit-slider-thumb {
+			height: 20px;
+			width: 20px;
+			background: var(--color-border);
+			cursor: pointer;
+			-webkit-appearance: none;
+			margin-top: -2px;
+			border: 1px solid var(--color-text);
+		}
+
+		input[type="range"]:disabled::-webkit-slider-thumb {
+			cursor: not-allowed;
+		}
+
+		input[type="range"]::-moz-range-track {
+			width: 100%;
+			height: 16px;
+			cursor: pointer;
+			background: var(--color-border);
+		}
+
+		input[type="range"]:disabled::-moz-range-track {
+			cursor: not-allowed;
+		}
+
+		input[type="range"]::-moz-range-thumb {
+			height: 20px;
+			width: 20px;
+			background: var(--color-border);
+			cursor: pointer;
+			border: 1px solid var(--color-text);
+		}
+
+		input[type="range"]:disabled::-moz-range-thumb {
+			cursor: not-allowed;
+		}
+
+		input[type="range"]::-ms-track {
+			width: 100%;
+			height: 16px;
+			cursor: pointer;
+			background: transparent;
+			border-color: transparent;
+			color: transparent;
+		}
+
+		input[type="range"]:disabled::-ms-track {
+			cursor: not-allowed;
+		}
+
+		input[type="range"]::-ms-fill-lower {
+			background: var(--color-border);
+			border-radius: 50px;
+			box-shadow: 0px 0px 0px #000000;
+		}
+
+		input[type="range"]::-ms-fill-upper {
+			background: var(--color-border);
+			border-radius: 50px;
+			box-shadow: 0px 0px 0px #000000;
+		}
+
+		input[type="range"]::-ms-thumb {
+			margin-top: 1px;
+			border: 1px solid var(--color-text);
+			height: 20px;
+			width: 20px;
+			background: var(--color-border);
+			cursor: pointer;
+		}
+
+		html,
+		html * {
+			scrollbar-color: var(--color-border) var(--color-background);
+			scrollbar-width: thin;
+		}
+	</style>
+
+	<body
+		style="
+			background-color: var(--color-background);
+			color: var(--color-text);
+			margin: 0;
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			font-size: xx-large;
+		"
+	>
+		<div id="main"></div>
+	</body>
+
+	<script type="module">
+		"use strict"
+
+		let XMLNS = "http://www.w3.org/2000/svg"
+
+		const clamp = (val, min, max) => (val < min ? min : val > max ? max : val)
+
+		const arrLast = (arr) => arr[arr.length - 1]
+
+		const arrLinSearch = (arr, item) => {
+			let result = false
+			for (let cur of arr) {
+				if (cur === item) {
+					result = true
+					break
+				}
+			}
+			return result
+		}
+
+		const arrSeq = (start, end, step) => {
+			let result = []
+			let current = start
+			for (; current < end; current += step) {
+				result.push(current)
+			}
+			if (current <= end) {
+				result.push(end)
+			}
+			return result
+		}
+
+		const scale = (value, valueMin, valueMax, scaleMin, scaleMax) => {
+			let result = scaleMin
+			let scaleRange = scaleMax - scaleMin
+			if (scaleRange !== 0) {
+				result = scaleRange / 2 + scaleMin
+				let valueRange = valueMax - valueMin
+				if (valueRange !== 0) {
+					let value0 = value - valueMin
+					let valueNorm = value0 / valueRange
+					let valueScale0 = valueNorm * scaleRange
+					result = valueScale0 + scaleMin
+				}
+			}
+			return result
+		}
+
+		const createSvgElement = (name) => document.createElementNS(XMLNS, name)
+		const setSvgAttribute = (el, name, val) => el.setAttributeNS(null, name, val)
+
+		const createDiv = () => document.createElement("div")
+		const createDomInput = () => document.createElement("input")
+
+		const createSlider = (name, val, min, max, onChange, onClick) => {
+			let container = createDiv()
+			container.style.margin = "5px"
+			container.style.width = "350px"
+			container.style.height = "80px"
+
+			let label = addChild(container, createDiv())
+			label.style.display = "flex"
+			label.style.cursor = "pointer"
+			label.onclick = onClick
+
+			let labelText = addChild(label, document.createElement("code"))
+			labelText.style.fontSize = "x-large"
+			labelText.innerHTML = `${name}: ${val.toFixed(2)}`
+
+			let slider = addChild(container, createDomInput())
+			slider.type = "range"
+			slider.min = min * 100
+			slider.max = max * 100
+			slider.value = val * 100
+			slider.step = 0.1
+
+			slider.oninput = (e) => {
+				val = e.target.value / 100
+				labelText.innerHTML = `${name}: ${val.toFixed(2)}`
+				onChange(val)
+			}
+
+			return container
+		}
+
+		const createDomSlide = (content) => {
+			let div = createDiv()
+			div.style.display = "flex"
+			div.style.width = "100vw"
+			div.style.height = "100vh"
+			return div
+		}
+
+		const createPoints = (points, store) => {
+			let container = createDiv()
+			for (let point of points) {
+				let domPoint = addDiv(container)
+				if (typeof point === "string") {
+					domPoint.innerHTML = point
+					domPoint.style.marginBottom = "10px"
+				} else {
+					domPoint.appendChild(point)
+				}
+				domPoint.style.visibility = "hidden"
+				store.push(domPoint)
+			}
+			return container
+		}
+
+		const createTableCell = (content) => {
+			let cell = createDiv()
+			if (typeof content === "string") {
+				cell.innerHTML = content
+			} else {
+				cell.appendChild(content)
+			}
+			cell.style.width = "250px"
+			cell.style.overflow = "hidden"
+			cell.style.whiteSpace = "nowrap"
+			return cell
+		}
+
+		const createTableRow = () => {
+			let row = createDiv()
+			row.style.display = "flex"
+			row.style.flexDirection = "row"
+			return row
+		}
+
+		const createTableRowFrom = (cells) => {
+			let row = createTableRow()
+			for (let cell of cells) {
+				let domCell = addChild(row, createTableCell(cell))
+			}
+			return row
+		}
+
+		const createTable = () => {
+			let table = createDiv()
+			table.style.display = "flex"
+			table.style.flexDirection = "column"
+			return table
+		}
+
+		const createMath = (expr) => {
+			let div = document.createElement("code")
+			div.innerHTML = expr
+			return div
+		}
+
+		const createTable2x2 = (vo, vn, uo, un) => {
+			let table = createTable()
+
+			const addRow = (cell1String, cell2Content, cell3Content) => {
+				let row = addChild(table, createTableRow())
+				let cell1 = addChild(row, createTableCell(cell1String))
+				cell1.style.textAlign = "right"
+				let cell2 = addChild(row, createTableCell(cell2Content))
+				cell2.style.textAlign = "center"
+				let cell3 = addChild(row, createTableCell(cell3Content))
+				cell3.style.textAlign = "center"
+			}
+
+			addRow("", "Outcome", "No Outcome")
+			addRow("Vaccinated", createMath(vo), createMath(vn))
+			addRow("Unvaccinated", createMath(uo), createMath(un))
+
+			return table
+		}
+
+		const createTableClassic2x2 = () => {
+			let table = createTable2x2("vo", "vn", "uo", "un")
+			table.style.marginBottom = "50px"
+			return table
+		}
+
+		const createLine = (x1, x2, y1, y2, col) => {
+			let line = createSvgElement("line")
+			setSvgAttribute(line, "x1", x1)
+			setSvgAttribute(line, "x2", x2)
+			setSvgAttribute(line, "y1", y1)
+			setSvgAttribute(line, "y2", y2)
+			setSvgAttribute(line, "stroke", col)
+			setSvgAttribute(line, "stroke-width", 2.5)
+			return line
+		}
+
+		const createVLine = (x, y1, y2, col) => createLine(x, x, y1, y2, col)
+		const createHLine = (x1, x2, y, col) => createLine(x1, x2, y, y, col)
+
+		const createLabelledLine = (x1, x2, y1, y2, col, lab) => {
+			let container = createSvgElement("g")
+			addChild(container, createLine(x1, x2, y1, y2, col))
+			addChild(container, createSvgText(x2, y2, lab, col, "start", "middle"))
+			return container
+		}
+
+		const createLabelledVLine = (x, y1, y2, col, lab) => createLabelledLine(x, x, y1, y2, col, lab)
+		const createLabelledHLine = (x1, x2, y, col, lab) => createLabelledLine(x1, x2, y, y, col, lab)
+
+		const createFunLine = (from, to, fun, scaleX, scaleY, ymin, ymax, col, lastInBounds) => {
+			const container = createSvgElement("g")
+
+			if (lastInBounds !== undefined) {
+				lastInBounds.x = scaleX(to)
+				lastInBounds.y = scaleY(fun(to))
+			}
+
+			if (to !== from) {
+				if (to < from) {
+					let temp = to
+					to = from
+					from = temp
+				}
+
+				let lastOg = from
+				let lastScaled = scaleX(from)
+				let lastYOg = fun(from)
+				let lastYScaled = scaleY(lastYOg)
+				let step = (to - from) / 100
+				let current = from + step
+				let breakAfter = false
+				for (; !breakAfter; current += step) {
+					if (current >= to) {
+						current = to
+						breakAfter = true
+					}
+					let currentScaled = scaleX(current)
+					let currentY = fun(current)
+					let currentYScaled = scaleY(currentY)
+					let currentIsInBounds = currentY >= ymin && currentY <= ymax
+					let lastIsInBounts = lastYOg >= ymin && lastYOg <= ymax
+					if (currentIsInBounds && lastIsInBounts) {
+						addChild(container, createLine(lastScaled, currentScaled, lastYScaled, currentYScaled, col))
+						if (lastInBounds !== undefined) {
+							lastInBounds.x = currentScaled
+							lastInBounds.y = currentYScaled
+						}
+					} else if (lastIsInBounts) {
+						let lerpFactor = 1
+						if (currentY > ymax) {
+							lerpFactor = (ymax - lastYOg) / (currentY - lastYOg)
+						} else if (currentY < ymin) {
+							lerpFactor = (lastYOg - ymin) / (currentY - lastYOg)
+						}
+						lerpFactor = clamp(lerpFactor, 0, 1)
+						let currentLerped = lastOg + lerpFactor * step
+						let currentLerpedScaled = scaleX(currentLerped)
+						let currentYLerpedScaled = scaleY(fun(currentLerped))
+						addChild(
+							container,
+							createLine(lastScaled, currentLerpedScaled, lastYScaled, currentYLerpedScaled, col)
+						)
+						if (lastInBounds !== undefined) {
+							lastInBounds.x = currentLerpedScaled
+							lastInBounds.y = currentYLerpedScaled
+						}
+					} else if (currentIsInBounds) {
+						let lerpFactor = 1
+						if (lastYOg > ymax) {
+							lerpFactor = (ymax - lastYOg) / (currentY - lastYOg)
+						} else if (lastYOg < ymin) {
+							lerpFactor = (ymin - lastYOg) / (currentY - lastYOg)
+						}
+						lerpFactor = clamp(lerpFactor, 0, 1)
+						let lastOgLerped = lastOg + lerpFactor * step
+						let lastOgLerpedScaled = scaleX(lastOgLerped)
+						let lastYOgLerpedScaled = scaleY(fun(lastOgLerped))
+						addChild(
+							container,
+							createLine(lastOgLerpedScaled, currentScaled, lastYOgLerpedScaled, currentYScaled, col)
+						)
+						if (lastInBounds !== undefined) {
+							lastInBounds.x = lastOgLerpedScaled
+							lastInBounds.y = lastYOgLerpedScaled
+						}
+					}
+					lastOg = current
+					lastScaled = currentScaled
+					lastYOg = currentY
+					lastYScaled = currentYScaled
+				}
+			}
+
+			return container
+		}
+
+		const createLabelledFunLine = (from, to, fun, scaleX, scaleY, ymin, ymax, col, lab, vAlign) => {
+			let container = createSvgElement("g")
+			let lastInBounds = {}
+			addChild(container, createFunLine(from, to, fun, scaleX, scaleY, ymin, ymax, col, lastInBounds))
+			addChild(container, createSvgText(lastInBounds.x, lastInBounds.y, lab, col, "start", vAlign))
+			return container
+		}
+
+		const createSvgText = (x, y, text, col, textAnchor, dominantBaseline) => {
+			let textEl = createSvgElement("text")
+			setSvgAttribute(textEl, "x", x)
+			setSvgAttribute(textEl, "y", y)
+			setSvgAttribute(textEl, "fill", col)
+			setSvgAttribute(textEl, "text-anchor", textAnchor)
+			setSvgAttribute(textEl, "dominant-baseline", dominantBaseline)
+			setSvgAttribute(textEl, "font-size", "large")
+			textEl.innerHTML = text
+			return textEl
+		}
+
+		const createPlotGrid = (xTicks, yTicks, scaleX, scaleY) => {
+			let container = createSvgElement("g")
+
+			let gridCol = "#55555566"
+			let tickCol = "#555555"
+			let textCol = "#aaaaaa"
+			let tickLength = 5
+
+			let gridTop = scaleY(arrLast(yTicks))
+			let gridBottom = scaleY(yTicks[0])
+			for (let xTick of xTicks) {
+				let xTickCoord = scaleX(xTick)
+				addChild(container, createVLine(xTickCoord, gridTop, gridBottom, gridCol))
+				addChild(container, createVLine(xTickCoord, gridBottom, gridBottom + tickLength, tickCol))
+				addChild(
+					container,
+					createSvgText(
+						xTickCoord,
+						gridBottom + tickLength * 2,
+						xTick.toFixed(1),
+						textCol,
+						"middle",
+						"hanging"
+					)
+				)
+			}
+
+			let gridLeft = scaleX(xTicks[0])
+			let gridRight = scaleX(arrLast(xTicks))
+			for (let yTick of yTicks) {
+				let yTickCoord = scaleY(yTick)
+				addChild(container, createHLine(gridLeft, gridRight, yTickCoord, gridCol))
+				addChild(container, createHLine(gridLeft - tickLength, gridLeft, yTickCoord, tickCol))
+				addChild(
+					container,
+					createSvgText(gridLeft - tickLength * 2, yTickCoord, yTick.toFixed(1), textCol, "end", "middle")
+				)
+			}
+
+			return container
+		}
+
+		const setSvgDim = (svg, width, height) => {
+			setSvgAttribute(svg, "viewBox", `0 0 ${width} ${height}`)
+			setSvgAttribute(svg, "width", width)
+			setSvgAttribute(svg, "height", height)
+		}
+
+		const createFullORPlot = () => {
+			let container = createDiv()
+			container.style.display = "flex"
+			container.style.flexDirection = "row"
+
+			let leftPanel = addDiv(container)
+			leftPanel.style.display = "flex"
+			leftPanel.style.flexDirection = "column"
+			leftPanel.style.marginLeft = "5px"
+			leftPanel.style.height = "100vh"
+			leftPanel.style.width = "50vw"
+			leftPanel.style.overflow = "scroll"
+
+			let plot = addChild(leftPanel, createSvgElement("svg"))
+			plot.style.flexShrink = "0"
+			plot.style.display = "block"
+
+			const addTextline = (parent, line) => {
+				const el = createDiv()
+				el.textContent = line
+				addChild(parent, el)
+				return el
+			}
+
+			let plotDesc = addDiv(leftPanel)
+			plotDesc.style.fontSize = "large"
+			addTextline(plotDesc, "Click on parameters on the right to put them on the X-axis.")
+			addTextline(plotDesc, "Parameters: ")
+			addTextline(plotDesc, "target_infection_unvac: Risk of target infection for unvaccinated")
+			addTextline(plotDesc, "target_infection_vac_ve0: Risk of target infection for vaccinated (if VE were 0)")
+			addTextline(plotDesc, "ve: True VE")
+			addTextline(plotDesc, "target_symptoms_unvac: Probability of target infection causing symptoms in the unvaccinated")
+			addTextline(plotDesc, "target_symptoms_vac: Probability of target infection causing symptoms in the vaccinated")
+			addTextline(plotDesc, "nontarget_symptomatic_infection: Risk of non-target symptomatic infection")
+			addTextline(plotDesc, "asympt_in_cases_vac: Proportion asymptomatic infections included as cases in the vaccinated")
+			addTextline(plotDesc, "asympt_in_cases_unvac: Proportion asymptomatic infections included as cases in the unvaccinated")
+			addTextline(plotDesc, "healthy_in_noncases_unvac: Proportion healthy included as non-cases in the unvaccinated")
+			addTextline(plotDesc, "healthy_in_noncases_vac: Proportion healthy included as non-cases in the vaccinated")
+			addTextline(plotDesc, "vaccine_coverage: Vaccine coverage")
+			addTextline(plotDesc, "Model:")
+			addTextline(plotDesc, "proportion_vaccinated_cases = vaccine_coverage * (target_infection_vac_ve0 * (1 - ve)) * (target_symptoms_vac + (1 - target_symptoms_vac) * asympt_in_cases_vac)")
+			addTextline(plotDesc, "proportion_vaccinated_noncases = vaccine_coverage * (nontarget_symptomatic_infection + (1 - (target_infection_vac_ve0 * (1 - ve)) - nontarget_symptomatic_infection) * healthy_in_noncases_vac)")
+			addTextline(plotDesc, "proportion_unvaccinated_cases = (1 - vaccine_coverage) * target_infection_unvac * (target_symptoms_unvac + (1 - target_symptoms_unvac) * asympt_in_cases_unvac)")
+			addTextline(plotDesc, "proportion_unvaccinated_noncases = (1 - vaccine_coverage) * (nontarget_symptomatic_infection + (1 - target_infection_unvac - nontarget_symptomatic_infection) * healthy_in_noncases_unvac)")
+			addTextline(plotDesc, "Estimated VE = 1 - (proportion_vaccinated_cases / proportion_vaccinated_noncases / (proportion_unvaccinated_cases / proportion_unvaccinated_noncases))")
+
+
+			const getPlotWidth = () => window.innerWidth * 0.5
+			let width = getPlotWidth()
+			let height = 500
+			setSvgDim(plot, width, height)
+
+			let pads = {
+				axis: { t: 20, l: 35, r: 50, b: 30 },
+				data: { t: 20, l: 20, r: 20, b: 20 },
+			}
+
+			let xAxisMin = 0
+			let xAxisMax = 1
+			let yAxisMin = 0
+			let yAxisMax = 1
+
+			let axisLabCol = "#bbbbbb"
+
+			let createScaleX = () => (val) =>
+				scale(val, xAxisMin, xAxisMax, pads.axis.l + pads.data.l, width - pads.axis.r - pads.data.r)
+			let scaleX = createScaleX()
+
+			let createScaleY = () => (val) =>
+				scale(val, 0, 1, height - pads.axis.b - pads.data.b, pads.axis.t + pads.data.t)
+			let scaleY = createScaleY()
+
+			let addPlotGrid = () =>
+				addChild(
+					plot,
+					createPlotGrid(arrSeq(xAxisMin, xAxisMax, 0.1), arrSeq(yAxisMin, yAxisMax, 0.1), scaleX, scaleY)
+				)
+			let plotGridEl = addPlotGrid()
+
+			let xlab = "target_infection_unvac"
+			const addXLab = () => {
+				let el = addChild(
+					plot,
+					createSvgText(
+						scaleX((xAxisMax + xAxisMin) / 2),
+						height - pads.axis.b + 10,
+						xlab,
+						axisLabCol,
+						"middle",
+						"hanging"
+					)
+				)
+				el.style.fontFamily = "monospace"
+				return el
+			}
+			let xlabEl = addXLab()
+
+			let yAxisLabEl = addChild(plot, createSvgText(0, 0, "Estimated VE", axisLabCol, "middle", "hanging"))
+			setSvgAttribute(yAxisLabEl, "transform", `translate(0, ${scaleY((yAxisMax + yAxisMin) / 2)}) rotate(-90)`)
+
+			let params = {}
+			params.target_infection_unvac = 0.01
+			params.target_infection_vac_ve0 = 0.01
+			params.ve = 0.6
+			params.target_symptoms_unvac = 0.5
+			params.target_symptoms_vac = 0.5
+			params.nontarget_symptomatic_infection = 0.2
+			params.asympt_in_cases_vac = 0
+			params.asympt_in_cases_unvac = 0
+			params.healthy_in_noncases_unvac = 0
+			params.healthy_in_noncases_vac = 0
+			params.vaccine_coverage = 0.7
+
+			let veLineCol = "#bbbbbb"
+
+			const addVELine = () => {
+				let line = null
+				if (xlab === "ve") {
+					line = addChild(
+						plot,
+						createFunLine(
+							xAxisMin,
+							xAxisMax,
+							(ve) => ve,
+							scaleX,
+							scaleY,
+							yAxisMin,
+							yAxisMax,
+							veLineCol
+						)
+					)
+				} else {
+					line = addChild(plot, createHLine(scaleX(xAxisMin), scaleX(xAxisMax), scaleY(params.ve), veLineCol))
+				}
+				return line
+			}
+
+			let veLineEl = addVELine()
+
+			const expected_ve = (params) => {
+				let target_infection_vac = params.target_infection_vac_ve0 * (1 - params.ve)
+
+				let healthy_vac = 1 - target_infection_vac - params.nontarget_symptomatic_infection
+				let healthy_unvac = 1 - params.target_infection_unvac - params.nontarget_symptomatic_infection
+
+				let asympt_vac = 1 - params.target_symptoms_vac
+				let asympt_unvac = 1 - params.target_symptoms_unvac
+
+				let vaccinated_cases =
+					params.vaccine_coverage *
+					target_infection_vac *
+					(params.target_symptoms_vac + asympt_vac * params.asympt_in_cases_vac)
+				let vaccinated_noncases =
+					params.vaccine_coverage *
+					(params.nontarget_symptomatic_infection + healthy_vac * params.healthy_in_noncases_vac)
+
+				let unvac_cases =
+					(1 - params.vaccine_coverage) *
+					params.target_infection_unvac *
+					(params.target_symptoms_unvac + asympt_unvac * params.asympt_in_cases_unvac)
+				let unvac_noncases =
+					(1 - params.vaccine_coverage) *
+					(params.nontarget_symptomatic_infection + healthy_unvac * params.healthy_in_noncases_unvac)
+
+				let odds_vaccination_cases = vaccinated_cases / unvac_cases
+				let odds_vaccination_noncases = vaccinated_noncases / unvac_noncases
+
+				let or = odds_vaccination_cases / odds_vaccination_noncases
+				let est_ve = 1 - or
+
+				return est_ve
+			}
+
+			const veFunOne = (val) => {
+				let paramsCopy = { ...params }
+				paramsCopy[xlab] = val
+				let result = expected_ve(paramsCopy)
+				return result
+			}
+
+			const addVEEstLine = (col, lbl, vAlign) => {
+				let line = addChild(
+					plot,
+					createLabelledFunLine(
+						clamp(xAxisMin, 0.001, xAxisMax),
+						clamp(xAxisMax, xAxisMin, 0.999),
+						(val) => veFunOne(val),
+						scaleX,
+						scaleY,
+						yAxisMin,
+						yAxisMax,
+						col,
+						lbl,
+						vAlign
+					)
+				)
+				return line
+			}
+
+			let veTNLineCol = "#ff69b4"
+
+			let addVETNLine = () => addVEEstLine(veTNLineCol, "", "text-bottom")
+			let veTNLineEl = addVETNLine()
+
+			const redrawLines = () => {
+				plot.removeChild(veLineEl)
+				plot.removeChild(veTNLineEl)
+				plot.removeChild(xlabEl)
+				veLineEl = addVELine()
+				veTNLineEl = addVETNLine()
+				xlabEl = addXLab()
+			}
+
+			const changeXLab = (newXLab) => {
+				if (xlab !== newXLab) {
+					xlab = newXLab
+					redrawLines()
+					for (let slider of Object.values(sliders)) {
+						slider.style.background = "var(--color-background)"
+					}
+					sliders[newXLab].style.background = "var(--color-selected)"
+				}
+			}
+
+			let slidersScrollContainer = addDiv(container)
+			slidersScrollContainer.style.overflowY = "scroll"
+			slidersScrollContainer.style.display = "flex"
+			slidersScrollContainer.style.height = "100vh"
+
+			let slidersContainer = addDiv(slidersScrollContainer)
+			slidersContainer.style.display = "flex"
+			slidersContainer.style.flexDirection = "column"
+			slidersContainer.style.justifyContent = "center"
+			slidersContainer.style.width = "400px"
+
+			let sliders = {}
+
+			const addSlider = (name, min, max) => {
+				sliders[name] = addChild(
+					slidersContainer,
+					createSlider(
+						name,
+						params[name],
+						min,
+						max,
+						(newVal) => {
+							params[name] = newVal
+							redrawLines()
+						},
+						() => {
+							changeXLab(name)
+						}
+					)
+				)
+			}
+
+			addSlider("target_infection_unvac", 0.001, 0.2)
+			addSlider("target_infection_vac_ve0", 0.001, 0.2)
+			addSlider("ve", 0.1, 0.9)
+			addSlider("target_symptoms_unvac", 0.1, 1)
+			addSlider("target_symptoms_vac", 0.1, 1)
+			addSlider("nontarget_symptomatic_infection", 0.1, 0.9)
+			addSlider("asympt_in_cases_vac", 0, 1)
+			addSlider("asympt_in_cases_unvac", 0, 1)
+			addSlider("healthy_in_noncases_unvac", 0, 1)
+			addSlider("healthy_in_noncases_vac", 0, 1)
+			addSlider("vaccine_coverage", 0.1, 0.9)
+
+			const redrawLinesAndGrid = () => {
+				scaleX = createScaleX()
+				scaleY = createScaleY()
+
+				plot.removeChild(plotGridEl)
+				plotGridEl = addPlotGrid()
+
+				redrawLines()
+			}
+
+			window.addEventListener("keydown", (e) => {
+				switch (e.key) {
+					case ",":
+						xAxisMin = clamp(xAxisMin + 0.1, 0, xAxisMax - 0.1)
+						redrawLinesAndGrid()
+						break
+					case "<":
+						xAxisMin = clamp(xAxisMin - 0.1, 0, xAxisMax - 0.1)
+						redrawLinesAndGrid()
+						break
+					case ".":
+						xAxisMax = clamp(xAxisMax - 0.1, xAxisMin + 0.1, 1)
+						redrawLinesAndGrid()
+						break
+					case ">":
+						xAxisMax = clamp(xAxisMax + 0.1, xAxisMin + 0.1, 1)
+						redrawLinesAndGrid()
+						break
+				}
+			})
+
+			window.addEventListener("resize", (e) => {
+				width = getPlotWidth()
+				setSvgDim(plot, width, height)
+				redrawLinesAndGrid()
+			})
+
+			sliders[xlab].style.background = "var(--color-selected)"
+			return container
+		}
+
+		const addChild = (parent, node) => {
+			parent.appendChild(node)
+			return node
+		}
+
+		const addDiv = (parent) => addChild(parent, createDiv())
+
+		const removeChildren = (parent) => {
+			while (parent.lastChild) {
+				parent.removeChild(parent.lastChild)
+			}
+		}
+
+		{
+			const main = document.getElementById("main")
+			addChild(main, createFullORPlot())
+		}
+	</script>
+</html>
